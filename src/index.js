@@ -8,14 +8,24 @@ const adminUserName = process.env.ADMIN_TG_USERNAME;
 const spreadSheetId = process.env.SPREADSHEET_ID;
 
 const findCommand = require('./utils/commandFinder');
-const loadData = require('./google/loadData.js');
+const loadData = require('./google/loadData');
 const auth = require('./google/auth');
 
+console.log('Connecting to Telegram...');
 const bot = new TelegramBot(token, {polling: true});
-const doc = new GoogleSpreadsheet(spreadSheetId, auth())
+console.log('Connected!');
+
+console.log('Authenticating to Google...');
+const doc = new GoogleSpreadsheet(spreadSheetId, auth());
+console.log('Done!');
 
 let mainSheet = null;
+
+// сделал немного статистики себе, ну интересно же посмотреть сколько используют, не бейте :)
 let processedCommandsCount = 0;
+let requestedFindGroups = 0;
+let requestedFindChatList = 0;
+let requestedFindChatDirection = 0;
 
 loadData(doc).then(data => {
     mainSheet = data;
@@ -43,7 +53,14 @@ bot.onText(/\/refresh/, (msg, match) => {
 
 bot.onText(/\/stats/, (msg, match) => {
     if (msg.chat.username === adminUserName) {
-        return bot.sendMessage(msg.chat.id, `Обработано команд за эту сессию: ${processedCommandsCount}`);
+        const resp = `
+Обработано команд за эту сессию: ${processedCommandsCount}
+
+Искали свою группу: ${requestedFindGroups}
+Искали список чатов: ${requestedFindChatList}
+Искали свой чат: ${requestedFindChatDirection}
+`;
+        return bot.sendMessage(msg.chat.id, resp);
     }
 });
 
@@ -54,6 +71,7 @@ bot.onText(/\/start/, (msg, match) => {
 
 bot.onText(/\/find(?: (.+))?/, (msg, match) => {
     processedCommandsCount++;
+    requestedFindChatDirection++;
     let direction = String(match[1]).toLowerCase();
 
     if (!match[1]) {
@@ -65,6 +83,7 @@ bot.onText(/\/find(?: (.+))?/, (msg, match) => {
 
 bot.onText(/\/list(?: (.+))?/, (msg, match) => {
     processedCommandsCount++;
+    requestedFindChatList++;
     let institute = String(match[1]).toLowerCase();
 
     if (!match[1]) {
@@ -72,6 +91,18 @@ bot.onText(/\/list(?: (.+))?/, (msg, match) => {
     }
 
     return bot.sendMessage(msg.chat.id, findCommand('list')(institute, mainSheet))
+});
+
+bot.onText(/\/group(?: (.+))?/, (msg, match) => {
+    processedCommandsCount++;
+    requestedFindGroups++;
+    let direction = String(match[1]).toLowerCase();
+
+    if (!match[1]) {
+        direction = null;
+    }
+
+    return bot.sendMessage(msg.chat.id, findCommand('group')(direction, mainSheet))
 });
 
 console.log('Started!');

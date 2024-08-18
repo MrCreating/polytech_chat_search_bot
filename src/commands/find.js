@@ -1,3 +1,5 @@
+const group = require('../utils/calculateGroup')
+
 module.exports =function (direction = null, data) {
     if (!direction) {
         return 'Вы не указали код направления. Пример /find 09.04.04_01';
@@ -20,6 +22,13 @@ module.exports =function (direction = null, data) {
     if (item.ownerLink !== '') {
         response += `
 В случае, если ссылка не работает, Вы можете написать напрямую создателю беседы: ${item.ownerLink}
+        `;
+    }
+
+    const groupNumber = group(item);
+    if (groupNumber) {
+        response += `
+Кстати, с высокой вероятностью номер вашей группы будет ${groupNumber} (последние 2 цифры могут отличаться на 1 или 2. Расписание тут -> https://ruz.spbstu.ru/search/groups?q=${encodeURI(groupNumber)}
         `;
     }
 
