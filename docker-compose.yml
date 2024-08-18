@@ -8,6 +8,8 @@ services:
     restart: on-failure
     tty: true
     hostname: polytech_bot_1
+    volumes:
+      - "./:/app"
 
 networks:
   default:

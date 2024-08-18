@@ -6,10 +6,8 @@ COPY . /app
 
 WORKDIR /app
 
-RUN apk add --update npm
-
-RUN npm install
+RUN apk add --update npm git
 
 USER node
 
-CMD node src/index.js
+ENTRYPOINT ["entrypoint.sh"]
