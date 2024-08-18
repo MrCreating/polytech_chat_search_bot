@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  node:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    restart: on-failure
+    tty: true
+    hostname: polytech_bot_1
+
+networks:
+  default:
