@@ -10,6 +10,8 @@ services:
     hostname: polytech_bot_1
     volumes:
       - "./:/app"
+    env_file:
+      - .env
 
 networks:
   default:

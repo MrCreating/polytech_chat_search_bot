@@ -8,6 +8,8 @@ WORKDIR /app
 
 RUN apk add --update npm git
 
+RUN chmod +x /app/entrypoint.sh
+
 USER node
 
-ENTRYPOINT ["entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]
