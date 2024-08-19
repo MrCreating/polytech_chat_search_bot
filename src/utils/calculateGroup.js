@@ -22,10 +22,6 @@ module.exports = function (data, lastDigit = true) {
         return null;
     }
 
-    if (Number(profileNumber) < 10) {
-        profileNumber = '0' + String(profileNumber);
-    }
-
     const lastDigitString = lastDigit ? '01' : '';
 
     return instituteNumber + '4' + explodedDir[0] + explodedDir[2] + '/4' + String(profileNumber) + lastDigitString;
