@@ -16,8 +16,8 @@ const groupCodes = {
 module.exports = function (data, lastDigit = true) {
     const instituteNumber = String(groupCodes[data.institute.toUpperCase()]);
 
-    const explodedDir = data.direction.split('_')[0].split('.');
-    let profileNumber = data.direction.split('_')[1];
+    const explodedDir = data.direction.trim().split('_')[0].split('.');
+    let profileNumber = data.direction.trim().split('_')[1];
     if (!profileNumber) {
         return null;
     }
