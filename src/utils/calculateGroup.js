@@ -13,14 +13,20 @@ const groupCodes = {
     'ИКНК': 51
 };
 
-module.exports = function (data) {
+module.exports = function (data, lastDigit = true) {
     const instituteNumber = String(groupCodes[data.institute.toUpperCase()]);
 
     const explodedDir = data.direction.split('_')[0].split('.');
-    const profileNumber = data.direction.split('_')[1];
+    let profileNumber = data.direction.split('_')[1];
     if (!profileNumber) {
         return null;
     }
 
-    return instituteNumber + '4' + explodedDir[0] + explodedDir[2] + '/4' + String(profileNumber) + '01';
+    if (Number(profileNumber) < 10) {
+        profileNumber = '0' + String(profileNumber);
+    }
+
+    const lastDigitString = lastDigit ? '01' : '';
+
+    return instituteNumber + '4' + explodedDir[0] + explodedDir[2] + '/4' + String(profileNumber) + lastDigitString;
 }

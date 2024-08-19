@@ -25,10 +25,10 @@ module.exports =function (direction = null, data) {
         `;
     }
 
-    const groupNumber = group(item);
+    const groupNumber = group(item, false);
     if (groupNumber) {
         response += `
-Кстати, с высокой вероятностью номер вашей группы будет ${groupNumber} (последние 2 цифры могут отличаться на 1 или 2. Расписание тут -> https://ruz.spbstu.ru/search/groups?q=${encodeURI(groupNumber)}
+Кстати, с высокой вероятностью номер вашей группы будет ${groupNumber + '01'} (последние 2 цифры могут отличаться на 1 или 2. Расписание тут -> https://ruz.spbstu.ru/search/groups?q=${encodeURI(groupNumber)}
         `;
     }
 
