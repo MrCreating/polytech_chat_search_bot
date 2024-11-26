@@ -70,6 +70,34 @@ const tables = [
                 ADD COLUMN poly_id INTEGER;
             `;
         }
+    },
+    {
+        id: 'create_chats_list',
+        sql: function () {
+            return `
+                CREATE TABLE IF NOT EXISTS chats_list (
+                    id SERIAL PRIMARY KEY,
+                    institute_id INTEGER REFERENCES institutes(id) ON DELETE CASCADE,
+                    owner_tg_chat_id BIGINT NOT NULL,
+                    chat_link TEXT NOT NULL,
+                    direction TEXT NOT NULL
+                );
+            `;
+        }
+    },
+    {
+        id: 'create_chat_add_requests',
+        sql: function () {
+            return `
+                CREATE TABLE IF NOT EXISTS chat_add_requests (
+                    id SERIAL PRIMARY KEY,
+                    institute_id INTEGER REFERENCES institutes(id) ON DELETE CASCADE,
+                    requester_tg_chat_id BIGINT NOT NULL,
+                    chat_link TEXT NOT NULL,
+                    direction TEXT NOT NULL
+                );
+            `;
+        }
     }
 ];
 

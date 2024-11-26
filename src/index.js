@@ -137,7 +137,9 @@ bot.onText(/\/profile/, (msg, match) => {
     const options = {
         reply_markup: {
             inline_keyboard: [
-                [{ text: 'Выбрать институт', callback_data: 'profile_select_institute' }]
+                [{ text: 'Выбрать институт', callback_data: 'profile_select_institute' }],
+                [{ text: 'Мои чаты', callback_data: 'profile_chats_list' }],
+                [{ text: 'Мои запросы на добавление', callback_data: 'profile_chats_requests' }]
             ]
         }
     };
@@ -155,6 +157,18 @@ bot.on('callback_query', async (callbackQuery) => {
 
     if (actionData === 'profile_select_institute') {
         return sendInstitutePage(message, 1, Math.ceil(institutes.length / institutesPerPage), institutes, 'profile_update', false);
+    }
+    if (actionData === 'profile_chats_list') {
+        return bot.editMessageText('На данный момент Вы не добавляли никаких чатов', {
+            chat_id: message.chat.id,
+            message_id: message.message_id
+        });
+    }
+    if (actionData === 'profile_chats_requests') {
+        return bot.editMessageText('На данный момент у Вас нет нерассмотренных запросов на добавление чатов в список', {
+            chat_id: message.chat.id,
+            message_id: message.message_id
+        });
     }
 
     const [command, action, instituteId] = actionData.split('_');

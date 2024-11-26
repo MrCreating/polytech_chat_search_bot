@@ -337,7 +337,7 @@ app.get('/api/institutes', checkAuth, (req, res) => {
 app.get('/admin/section/:section', checkAuth, (req, res) => {
     const section = req.params.section;
 
-    if (['dashboard', 'chat-add-requests', 'chats', 'institutes', 'mail', 'settings', 'users'].includes(section)) {
+    if (['dashboard', 'chat_add_requests', 'chats', 'institutes', 'mail', 'settings', 'users'].includes(section)) {
         return res.render(`templates/sections/${section}`);
     }
 
@@ -347,7 +347,7 @@ app.get('/admin/section/:section', checkAuth, (req, res) => {
 app.get('/admin/:section', checkAuth, (req, res) => {
     const section = req.params.section;
 
-    if (['dashboard', 'chat-add-requests', 'chats', 'institutes', 'mail', 'settings', 'users'].includes(section)) {
+    if (['dashboard', 'chat_add_requests', 'chats', 'institutes', 'mail', 'settings', 'users'].includes(section)) {
         return res.render('layouts/dashboard', {title: 'Admin Dashboard', view: section.toLowerCase()});
     }
 
