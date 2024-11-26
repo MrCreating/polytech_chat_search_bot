@@ -5,11 +5,12 @@ const path = require('path');
 const generateUniqueId = require('../utils/generateUniqueId');
 const mime = require('mime-types');
 const fs = require('fs');
+const migrate = require('../database/migrate');
 
 let currentBotObject;
+let currentDatabaseConnection;
 
 const app = express();
-const port = parseInt(process.env.ADMIN_PANEL_PORT, 10);
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -20,6 +21,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let authRequests = {};
 let adminSessions = {};
+
+const users = {};
+const institutes = {};
 
 const checkAuth = (req, res, next) => {
     const sessionId = req.cookies['sessionId'];
@@ -149,6 +153,10 @@ app.get('/logout', checkAuth, (req, res) => {
     return res.render('layouts/main', {title: "Log out", view: "logout"});
 });
 
+app.get('/health', (req, res) => {
+    return res.json({success: 1});
+});
+
 app.get('/api/get-user-state', (req, res) => {
     const sessionId = req.cookies['sessionId'];
 
@@ -203,6 +211,19 @@ function rejectAuthRequest (requestId) {
     authRequests[requestId].approved = false;
 }
 
+function connectWithRetry () {
+    console.log('Connecting to database...');
+    currentDatabaseConnection.connect()
+        .then(() => {
+            console.log('Connected to database');
+        })
+        .catch(err => {
+            console.error('Failed to connect to database');
+            console.log('Retrying in 5 seconds...');
+            setTimeout(connectWithRetry, 5000);
+        });
+};
+
 module.exports = {
     init: function (bot) {
         currentBotObject = bot;
@@ -237,10 +258,180 @@ module.exports = {
 
         return this;
     },
+    with: function (database) {
+        currentDatabaseConnection = database;
+        return this;
+    },
     start: function () {
-        app.listen(port, () => {
-            console.log(`Admin server started and running at ${port} port`);
+        connectWithRetry();
+        currentDatabaseConnection.on('error', err => {
+            console.error('database connection error occurred.');
+            console.log('Attempting to reconnect...');
+            connectWithRetry();
         });
+
+        migrate(currentDatabaseConnection);
+
+        this.loadDatabaseToMemory();
+
+        setInterval(() => {
+            this.saveChangesToDatabase();
+        }, 5 * 60 * 1000);
+
+        app.listen(3000, () => {
+            console.log(`Admin server started and running at ${process.env.ADMIN_PANEL_PORT} port`);
+        });
+
+        process.on('SIGINT', async function () {
+            await this.saveChangesToDatabase();
+            process.exit(0);
+        });
+
+        return true;
+    },
+    loadDatabaseToMemory: function () {
+        let usersLoaded = 0;
+        let institutesLoaded = 0;
+
+        currentDatabaseConnection.query('SELECT * FROM users', (err, result) => {
+            if (err) {
+                console.error('Error fetching users');
+                process.exit(1)
+            }
+
+            result.rows.forEach(user => {
+                users[user.tg_chat_id] = {
+                    id: user.id,
+                    tg_chat_id: user.tg_chat_id,
+                    tg_username: user.tg_username,
+                    access_level: user.access_level,
+                    institute_id: user.institute_id
+                };
+                usersLoaded++;
+            });
+
+            console.log(`Users data loaded into memory. Total users: ${usersLoaded}`);
+        });
+
+        currentDatabaseConnection.query('SELECT * FROM institutes', (err, result) => {
+            if (err) {
+                console.error('Error fetching institutes');
+                process.exit(1);
+            }
+
+            result.rows.forEach(institute => {
+                institutes[institute.id] = {
+                    id: institute.id,
+                    name: institute.name,
+                    poly_id: institute.poly_id
+                };
+                institutesLoaded++;
+            });
+
+            console.log(`Institutes data loaded into memory. Total institutes: ${institutesLoaded}`);
+        });
+    },
+    saveChangesToDatabase: function () {
+        console.log('Saving changes to the database...');
+
+        Object.values(institutes).forEach(institute => {
+            if (institute.id == null) {
+                currentDatabaseConnection.query(
+                    'INSERT INTO institutes (name, poly_id) VALUES ($1, $2) ON CONFLICT (poly_id) DO UPDATE SET name = EXCLUDED.name',
+                    [institute.name, institute.poly_id],
+                    (err, result) => {
+                        if (err) {
+                            console.error('Error saving new institute:', institute.name);
+                        }
+                    }
+                );
+            } else {
+                currentDatabaseConnection.query(
+                    'INSERT INTO institutes (id, name, poly_id) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, poly_id = EXCLUDED.poly_id',
+                    [institute.id, institute.name, institute.poly_id],
+                    (err, result) => {
+                        if (err) {
+                            console.error('Error saving institute:', institute.name);
+                        }
+                    }
+                );
+            }
+        });
+
+        Object.values(users).forEach(user => {
+            if (user.id == null) {
+                currentDatabaseConnection.query(
+                    'INSERT INTO users (tg_chat_id, tg_username, access_level, institute_id) VALUES ($1, $2, $3, $4) ON CONFLICT (tg_chat_id) DO UPDATE SET tg_username = EXCLUDED.tg_username, access_level = EXCLUDED.access_level, institute_id = EXCLUDED.institute_id',
+                    [user.tg_chat_id, user.tg_username, user.access_level, user.institute_id],
+                    (err, result) => {
+                        if (err) {
+                            console.error('Error saving new user:', user.tg_username);
+                        }
+                    }
+                );
+            } else {
+                currentDatabaseConnection.query(
+                    'INSERT INTO users (id, tg_chat_id, tg_username, access_level, institute_id) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (tg_chat_id) DO UPDATE SET tg_username = EXCLUDED.tg_username, access_level = EXCLUDED.access_level, institute_id = EXCLUDED.institute_id',
+                    [user.id, user.tg_chat_id, user.tg_username, user.access_level, user.institute_id],
+                    (err, result) => {
+                        if (err) {
+                            console.error('Error saving user:', user.tg_username);
+                        }
+                    }
+                );
+            }
+        });
+
+        console.log('Changes saved to the database.');
+    },
+    getUserByTgChatId: function (tg_chat_id) {
+        return users[tg_chat_id] || null;
+    },
+    getUserByTgUsername: function (tg_username) {
+        const user = Object.values(users).find(user => user.tg_username === tg_username);
+        return user || null;
+    },
+    getUsers: function () {
+        return Object.values(users);
+    },
+    getUserById: function (id) {
+        return Object.values(users).find(user => user.id === id) || null;
+    },
+    addUser: function (user) {
+        if (!user || !user.tg_chat_id) {
+            return false;
+        }
+
+        users[user.tg_chat_id] = user;
+        return this;
+    },
+    updateUser: function (tg_chat_id, userData) {
+        const user = users[tg_chat_id];
+        if (!user) {
+            return false;
+        }
+
+        Object.assign(user, userData);
+        return true;
+    },
+    getInstitute: function (id) {
+        return institutes[id] || null;
+    },
+    addInstitute: function (institute) {
+        if (!institute || !institute.id) {
+            return false;
+        }
+
+        institutes[institute.id] = institute;
+        return true;
+    },
+    updateInstitute: function (id, instituteData) {
+        const institute = institutes[id];
+        if (!institute) {
+            return false;
+        }
+
+        Object.assign(institute, instituteData);
         return true;
     }
 }
