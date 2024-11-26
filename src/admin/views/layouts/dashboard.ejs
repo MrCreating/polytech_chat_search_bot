@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/public/css/design.css"/>
+    <link rel="stylesheet" href="/public/css/main.css"/>
+    <script src="/public/js/design.js" type="text/javascript"></script>
+    <script src="/public/js/admin.js" type="text/javascript"></script>
+    <style>
+        body {
+            display: flex;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+        main {
+            flex: 1 0 auto;
+            padding-left: 300px;
+        }
+        @media only screen and (max-width: 992px) {
+            main {
+                padding-left: 0;
+            }
+        }
+        .sidenav {
+            width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <ul id='userDropdown' class='dropdown-content'>
+    </ul>
+    <nav>
+        <div class="nav-wrapper blue">
+            <a href="#" data-target="sidenav" class="sidenav-trigger left"><i class="material-icons">menu</i></a>
+            <ul class="right">
+                <li>
+                    <a class="dropdown-trigger valign-wrapper" href="#" data-target="userDropdown">
+                        <div style="padding-right: 10px" id="userNameId"></div><i class="material-icons">arrow_drop_down</i>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <ul class="sidenav sidenav-fixed" id="sidenav">
+        <li><a href="#" class="waves-effect" data-link="dashboard"><i class="material-icons">dashboard</i> Панель</a></li>
+        <li><a href="#" class="waves-effect" data-link="users"><i class="material-icons">group</i> Пользователи</a></li>
+        <li><a href="#" class="waves-effect" data-link="settings"><i class="material-icons">settings</i> Настройки</a></li>
+    </ul>
+    <main class="contentContainer">
+        <%- include("../templates/sections/" + view) %>
+    </main>
+</body>
+</html>

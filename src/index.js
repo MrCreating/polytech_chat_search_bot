@@ -32,8 +32,9 @@ loadData(doc).then(data => {
     mainSheet = data;
 });
 
+console.log('Starting admin server...');
 if (!admin.init(bot).start()) {
-    console.log('Admin panel starting failed.');
+    console.log('Admin server starting failed.');
     process.exit(1);
 }
 
@@ -54,6 +55,12 @@ bot.onText(/\/refresh/, (msg, match) => {
             mainSheet = data;
             bot.sendMessage(msg.chat.id, 'Обновил!');
         });
+    }
+});
+
+bot.onText(/\/chat/, (msg, match) => {
+    if (msg.chat.username === adminUserName) {
+        bot.sendMessage(msg.chat.id, 'Ваш ID чата: ' + msg.chat.id.toString());
     }
 });
 
