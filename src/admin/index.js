@@ -187,7 +187,7 @@ app.get('/api/get-user-state', (req, res) => {
 app.get('/admin/section/:section', checkAuth, (req, res) => {
     const section = req.params.section;
 
-    if (['dashboard'].includes(section)) {
+    if (['dashboard', 'auth-requests', 'chat-add-requests', 'chats', 'institutes', 'mail', 'settings', 'users'].includes(section)) {
         return res.render(`templates/sections/${section}`);
     }
 
