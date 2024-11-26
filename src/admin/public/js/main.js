@@ -86,24 +86,24 @@ function pollAuthStatus(id) {
     });
 }
 
-function sendAuthRequest() {
+function sendAuthRequest(telegramUsername) {
     return fetch('/api/auth-request', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action: 'request' }) // данные для запроса
+        body: JSON.stringify({
+            action: 'request',
+            telegramUsername: telegramUsername  // Передаем никнейм Telegram
+        })
     })
         .then(response => response.json())
         .then(data => {
             if (data && data.id) {
                 return data.id;  // Возвращаем id из ответа
             } else {
-                throw new Error('Auth failed');
+                throw new Error(data.error);
             }
-        })
-        .catch(error => {
-            return null;
         });
 }
 
@@ -133,12 +133,20 @@ function saveAuthSession(id) {
 }
 
 function auth(authButton) {
+    const telegramUsername = document.getElementById('telegram-username');
+
+    if (!telegramUsername.value) {
+        M.toast({html: 'Пожалуйста, укажите ваш никнейм в Telegram'});
+        return;
+    }
+
     let loader = findLoader('auth-loader');
     let textBox = createOrFindTextBox('auth-result-box');
 
     textBox.setText('');
     authButton.style.display = 'none';
     loader.style.display = '';
+    telegramUsername.disabled = true;
 
     // Инициализация счетчика
     let secondsElapsed = 0;
@@ -158,7 +166,7 @@ function auth(authButton) {
         clearInterval(timerInterval);
     }
 
-    sendAuthRequest().then(id => {
+    sendAuthRequest(telegramUsername.value).then(id => {
         if (id) {
             currentRequestId = id;
             textBox.setText(`Ожидается подтверждение авторизации для ${currentRequestId}...`);
@@ -176,12 +184,14 @@ function auth(authButton) {
                         } else {
                             textBox.setText('Ошибка входа. Попробуйте ещё раз.');
                             authButton.style.display = '';
+                            telegramUsername.disabled = false;
                             loader.style.display = 'none';
                         }
                     });
                 } else {
                     textBox.setText('Ваша авторизация была отклонена.');
                     authButton.style.display = '';
+                    telegramUsername.disabled = false;
                     loader.style.display = 'none';
                 }
             });
@@ -189,10 +199,12 @@ function auth(authButton) {
             textBox.setText('Ошибка авторизации. Попробуйте ещё раз');
             authButton.style.display = '';
             loader.style.display = 'none';
+            telegramUsername.disabled = false;
         }
     }).catch(error => {
-        textBox.setText('Произошла ошибка. Попробуйте ещё раз.');
+        textBox.setText(error.message ? error.message : 'Произошла ошибка. Попробуйте ещё раз.');
         authButton.style.display = '';
         loader.style.display = 'none';
+        telegramUsername.disabled = false;
     });
 }

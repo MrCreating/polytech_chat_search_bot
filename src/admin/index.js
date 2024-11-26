@@ -46,12 +46,27 @@ const checkNotAuth = (req, res, next) => {
 };
 
 app.post('/api/auth-request', (req, res) => {
+    const { telegramUsername } = req.body;
+
+    if (!telegramUsername) {
+        return res.status(400).json({ error: 'Никнейм Telegram обязателен' });
+    }
+
+    let user = module.exports.getUserByTgUsername(telegramUsername);
+    if (!user) {
+        return res.status(400).json({ error: 'Пользователь не найден в боте' });
+    }
+
+    if (user.access_level <= 0) {
+        return res.status(400).json({ error: 'У пользователя нет прав администратора' });
+    }
+
     const requestId = generateUniqueId();
-    authRequests[requestId] = { approved: null, userId: null };
+    authRequests[requestId] = { approved: null, userId: user.tg_username, chatId: user.tg_chat_id };
 
     if (currentBotObject) {
         currentBotObject.sendMessage(
-            process.env.ADMIN_CHAT_ID,
+            user.tg_chat_id,
             `Получен новый запрос на авторизацию в админ-панели: ${requestId}\n\nДля подтверждения запроса нажмите на кнопку ниже:`,
             {
                 reply_markup: {
@@ -232,7 +247,11 @@ module.exports = {
             const { data, message } = callbackQuery;
             const [action, requestId] = data.split('_');
 
-            if (message.chat.username !== process.env.ADMIN_TG_USERNAME) {
+            const request = authRequests[requestId];
+            if (!request) {
+                return;
+            }
+            if (message.chat.id !== parseInt(request.chatId)) {
                 return;
             }
 
@@ -240,13 +259,9 @@ module.exports = {
                 let answerText = action === 'approve' ? `✅ Запрос на авторизацию ${requestId} принят.` : `❌ Запрос на авторизацию ${requestId} отклонён.`;
 
                 if (action === 'approve') {
-                    approveAuthRequest(requestId, message.chat.id, message.chat.username)
+                    approveAuthRequest(requestId, request.chatId, request.userId)
                 } else {
                     rejectAuthRequest(requestId)
-                }
-
-                if (!authRequests[requestId]) {
-                    answerText = 'Данный запрос уже не актуален';
                 }
 
                 currentBotObject.editMessageText(answerText, {
