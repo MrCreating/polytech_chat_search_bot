@@ -132,22 +132,41 @@ function saveAuthSession(id) {
     })
 }
 
-function auth (authButton) {
+function auth(authButton) {
     let loader = findLoader('auth-loader');
-
     let textBox = createOrFindTextBox('auth-result-box');
 
     textBox.setText('');
     authButton.style.display = 'none';
     loader.style.display = '';
 
+    // Инициализация счетчика
+    let secondsElapsed = 0;
+    let timerInterval;
+    let currentRequestId = '';
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            secondsElapsed++;
+            const minutes = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+            const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
+            textBox.setText(`Ожидается подтверждение авторизации для ${currentRequestId} (${minutes}:${seconds})...`);
+        }, 1000);
+    }
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+    }
+
     sendAuthRequest().then(id => {
         if (id) {
-            textBox.setText(`Ожидается подтверждение авторизации. ID: ${id}`);
+            currentRequestId = id;
+            textBox.setText(`Ожидается подтверждение авторизации для ${currentRequestId}...`);
+            startTimer(); // Запускаем таймер
             return pollAuthStatus(id).then(function (success) {
+                stopTimer(); // Останавливаем таймер
                 if (success) {
                     textBox.setText('Ваша авторизация подтверждена. Выполняется авторизация...');
-
                     saveAuthSession(id).then(saved => {
                         if (saved) {
                             textBox.setText('Сессия сохранена. Ожидается переход...');
@@ -165,11 +184,15 @@ function auth (authButton) {
                     authButton.style.display = '';
                     loader.style.display = 'none';
                 }
-            })
+            });
         } else {
             textBox.setText('Ошибка авторизации. Попробуйте ещё раз');
             authButton.style.display = '';
             loader.style.display = 'none';
         }
+    }).catch(error => {
+        textBox.setText('Произошла ошибка. Попробуйте ещё раз.');
+        authButton.style.display = '';
+        loader.style.display = 'none';
     });
 }
