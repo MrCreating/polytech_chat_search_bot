@@ -10,6 +10,7 @@ const spreadSheetId = process.env.SPREADSHEET_ID;
 const findCommand = require('./utils/commandFinder');
 const loadData = require('./google/loadData');
 const auth = require('./google/auth');
+const admin = require('./admin/index');
 
 console.log('Connecting to Telegram...');
 const bot = new TelegramBot(token, {polling: true});
@@ -30,6 +31,11 @@ let requestedFindChatDirection = 0;
 loadData(doc).then(data => {
     mainSheet = data;
 });
+
+if (!admin.init(bot).start()) {
+    console.log('Admin panel starting failed.');
+    process.exit(1);
+}
 
 bot.onText(/\/form/, (msg, match) => {
     processedCommandsCount++;
