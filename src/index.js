@@ -68,12 +68,6 @@ function findOrRegisterUser(chatId, username) {
     }
 }
 
-bot.onText(/\/form/, (msg, match) => {
-    processedCommandsCount++;
-    findOrRegisterUser(msg.chat.id, msg.chat.username);
-    return bot.sendMessage(msg.chat.id, findCommand('form').apply(this));
-});
-
 bot.onText(/\/help/, (msg, match) => {
     processedCommandsCount++;
     findOrRegisterUser(msg.chat.id, msg.chat.username);
@@ -131,6 +125,7 @@ bot.onText(/\/start/, (msg, match) => {
 
 bot.onText(/\/profile/, (msg, match) => {
     processedCommandsCount++;
+
     const user = findOrRegisterUser(msg.chat.id, msg.chat.username);
     if (msg.chat.username === adminUserName && user.access_level < 2) {
         admin.updateUser(msg.chat.id, {
@@ -139,7 +134,122 @@ bot.onText(/\/profile/, (msg, match) => {
         bot.sendMessage(msg.chat.id, 'Вы были указаны как владелец бота в .env, выдан 2/2 уровень доступа');
     }
 
-    return bot.sendMessage(msg.chat.id, findCommand('profile')(user, admin));
+    const options = {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: 'Выбрать институт', callback_data: 'profile_select_institute' }]
+            ]
+        }
+    };
+
+    return bot.sendMessage(msg.chat.id, findCommand('profile')(user, admin), options);
+});
+
+const institutesPerPage = 5;
+bot.on('callback_query', async (callbackQuery) => {
+    const { data, message, from } = callbackQuery;
+
+    const [callbackQueryId, actionData] = data.includes('$') ? data.split('$') : [null, data];
+    const user = findOrRegisterUser(from.id, from.username);
+    const institutes = admin.getInstitutes();
+
+    if (actionData === 'profile_select_institute') {
+        return sendInstitutePage(message, 1, Math.ceil(institutes.length / institutesPerPage), institutes, 'profile_update', false);
+    }
+
+    const [command, action, instituteId] = actionData.split('_');
+
+    if (command === 'list' && action === 'select') {
+        if (instituteId && mainSheet) {
+            const institute = admin.getInstitute(instituteId);
+
+            return bot.editMessageText(findCommand('list')(institute.name.toLowerCase(), mainSheet), {
+                chat_id: message.chat.id,
+                message_id: message.message_id
+            });
+        } else {
+            return bot.editMessageText('Не обновлена главная таблица', {
+                chat_id: message.chat.id,
+                message_id: message.message_id
+            });
+        }
+    }
+
+    if (command === 'profile' && action === 'update') {
+        let replyText = 'Не удалось найти институт';
+        if (instituteId) {
+            admin.updateUser(user.tg_chat_id, { institute_id: instituteId });
+            replyText = 'Институт обновлен.';
+        }
+
+        return bot.editMessageText(replyText, {
+            chat_id: message.chat.id,
+            message_id: message.message_id
+        });
+    }
+
+    if (command === 'page') {
+        const currentPage = parseInt(action, 10);
+        const totalPages = Math.ceil(institutes.length / institutesPerPage);
+        if (!isNaN(currentPage)) {
+            return sendInstitutePage(message, currentPage, totalPages, institutes, callbackQueryId, false); // Передаем исходный callbackQueryId
+        }
+    }
+});
+
+function sendInstitutePage(message, currentPage, totalPages, institutes, callbackQueryId, isNewMessage = false) {
+    const startIndex = (currentPage - 1) * institutesPerPage;
+    const pageInstitutes = institutes.slice(startIndex, startIndex + institutesPerPage);
+
+    const inlineKeyboard = pageInstitutes.map(institute => ([{
+        text: institute.name,
+        callback_data: `${callbackQueryId}_${institute.id}` // Сохраняем callbackQueryId
+    }]));
+
+    if (totalPages > 1) {
+        const paginationButtons = [];
+        if (currentPage > 1) {
+            paginationButtons.push({
+                text: '← Предыдущая',
+                callback_data: `${callbackQueryId}$page_${currentPage - 1}` // Добавляем callbackQueryId
+            });
+        }
+        if (currentPage < totalPages) {
+            paginationButtons.push({
+                text: 'Следующая →',
+                callback_data: `${callbackQueryId}$page_${currentPage + 1}` // Добавляем callbackQueryId
+            });
+        }
+        inlineKeyboard.push(paginationButtons);
+    }
+
+    const options = {
+        reply_markup: {
+            inline_keyboard: inlineKeyboard
+        }
+    };
+
+    if (!isNewMessage) {
+        bot.editMessageText('Выберите институт:', {
+            chat_id: message.chat.id,
+            message_id: message.message_id,
+            ...options
+        });
+    } else {
+        bot.sendMessage(message.chat.id, 'Выберите институт:', options);
+    }
+}
+
+bot.onText(/\/list(?: (.+))?/, (msg, match) => {
+    processedCommandsCount++;
+    requestedFindChatList++;
+    findOrRegisterUser(msg.chat.id, msg.chat.username);
+
+    const institutes = admin.getInstitutes();
+    const totalPages = Math.ceil(institutes.length / institutesPerPage);
+    const currentPage = 1;
+
+    sendInstitutePage(msg, currentPage, totalPages, institutes, 'list_select', true);
 });
 
 bot.onText(/\/find(?: (.+))?/, (msg, match) => {
@@ -153,19 +263,6 @@ bot.onText(/\/find(?: (.+))?/, (msg, match) => {
     }
 
     return bot.sendMessage(msg.chat.id, findCommand('find')(direction, mainSheet))
-});
-
-bot.onText(/\/list(?: (.+))?/, (msg, match) => {
-    processedCommandsCount++;
-    requestedFindChatList++;
-    findOrRegisterUser(msg.chat.id, msg.chat.username);
-    let institute = String(match[1]).toLowerCase();
-
-    if (!match[1]) {
-        institute = null;
-    }
-
-    return bot.sendMessage(msg.chat.id, findCommand('list')(institute, mainSheet))
 });
 
 bot.onText(/\/group(?: (.+))?/, (msg, match) => {

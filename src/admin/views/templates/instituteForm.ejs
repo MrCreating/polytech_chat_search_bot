@@ -1,0 +1,64 @@
+<div class="container" style="padding-top: 50px">
+    <h5><%= isNew ? 'Добавить институт' : 'Редактировать институт: ' + institute.name %></h5>
+
+    <form id="institute-form">
+        <div class="input-field">
+            <input id="institute-name" type="text" value="<%= institute ? institute.name : '' %>" <%= isNew ? '' : 'disabled' %>>
+            <label for="institute-name">Название института</label>
+        </div>
+
+        <div class="input-field">
+            <input id="institute-poly-id" type="text" value="<%= institute ? institute.poly_id : '' %>" <%= isNew ? '' : '' %>>
+            <label for="institute-poly-id">Номер института</label>
+        </div>
+
+        <button type="button" class="btn waves-effect waves-light" id="save-institute-btn">
+            <%= isNew ? 'Добавить' : 'Сохранить' %>
+        </button>
+        <a href="/admin/institutes" type="button" class="btn waves-effect waves-light">
+            Назад
+        </a>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        M.AutoInit();
+    });
+
+    document.getElementById('save-institute-btn').addEventListener('click', function() {
+        const instituteName = document.getElementById('institute-name').value;
+        const polyId = document.getElementById('institute-poly-id').value;
+        const instituteId = '<%= institute ? institute.id : "" %>';
+
+        const data = {
+            instituteName: instituteName,
+            newPolyId: polyId,
+            instituteId: instituteId
+        };
+
+        const url = '<%= isNew ? "/api/add-institute" : "/api/update-institute" %>';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    M.toast({ html: 'Институт <%= isNew ? "добавлен" : "обновлён" %>.', classes: 'green' });
+                    setTimeout(function () {
+                        window.location.href = '/admin/institutes';
+                    }, 1000)
+                } else {
+                    M.toast({ html: data.error, classes: 'red' });
+                }
+            })
+            .catch(error => {
+                M.toast({ html: 'Ошибка: ' + error.message, classes: 'red' });
+            });
+    });
+</script>

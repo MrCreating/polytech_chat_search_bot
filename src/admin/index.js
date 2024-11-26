@@ -96,6 +96,124 @@ app.get('/api/auth-state-check', (req, res) => {
     res.json({ requestId: requestId, status: requestStatus });
 });
 
+app.post('/api/delete-user', checkAuth, function (req, res) {
+    const user = module.exports.getUserByTgChatId(adminSessions[req.cookies['sessionId']].chatId);
+
+    const { tgChatId } = req.body;
+
+    if (user.access_level < 2) {
+        return res.status(400).json({error: 'Недостаточно прав для данного действия'})
+    }
+    if (parseInt(user.tg_chat_id) === parseInt(tgChatId)) {
+        return res.status(400).json({error: 'Нельзя удалить самого себя'})
+    }
+
+    module.exports.deleteUserByTgChatId(user.tg_chat_id);
+
+    return res.status(200).json({success: true});
+});
+
+app.post('/api/delete-institute', checkAuth, function (req, res) {
+    const { instituteId } = req.body;
+
+    const institute = module.exports.getInstitute(instituteId);
+    if (!institute) {
+        return res.status(404).json({error: 'Институт не найден'});
+    }
+
+    module.exports.deleteInstitute(institute.id);
+
+    return res.status(200).json({success: true});
+});
+
+app.post('/api/update-user', checkAuth, function (req, res) {
+    const user = module.exports.getUserByTgChatId(adminSessions[req.cookies['sessionId']].chatId);
+
+    if (user.access_level < 2) {
+        return res.status(400).json({error: 'Недостаточно прав для данного действия'})
+    }
+
+    const { tgChatId, instituteId, accessLevel } = req.body;
+
+    module.exports.updateUser(tgChatId, {
+        institute_id: instituteId,
+        access_level: accessLevel
+    });
+
+    return res.status(200).json({success: true});
+});
+
+app.get('/admin/menu/update-user', checkAuth, function (req, res) {
+    const user = module.exports.getUserByTgChatId(adminSessions[req.cookies['sessionId']].chatId);
+
+    if (user.access_level < 2) {
+        return res.status(400).json({ error: 'Недостаточно прав для данного действия' });
+    }
+
+    const { userTgChatId } = req.query;
+
+    const userToUpdate = module.exports.getUserByTgChatId(userTgChatId);
+    if (!userToUpdate) {
+        return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    const institutes = module.exports.getInstitutes();
+    institutes.unshift({ id: null, name: 'Не выбран' });
+
+    return res.render('layouts/main', {
+        view: 'updateUser',
+        title: 'Update user ' + userToUpdate.tg_username,
+        user: userToUpdate,
+        institutes: institutes
+    });
+});
+
+app.post('/api/add-institute', checkAuth, async function (req, res) {
+    const { instituteName, newPolyId } = req.body;
+
+    await module.exports.addInstitute({
+        name: instituteName.trim(),
+        poly_id: newPolyId
+    });
+
+    return res.status(200).json({success: true});
+});
+
+app.post('/api/update-institute', checkAuth, function (req, res) {
+    const { instituteId, newPolyId } = req.body;
+
+    module.exports.updateInstitute(instituteId, {
+        poly_id: newPolyId
+    });
+
+    return res.status(200).json({success: true});
+});
+
+app.get('/admin/menu/update-institute', checkAuth, function (req, res) {
+    const instituteId = req.query.instituteId;
+    const institute = module.exports.getInstitute(instituteId);
+
+    if (!institute) {
+        return res.status(404).send('Институт не найден');
+    }
+
+    return res.render('layouts/main', {
+        view: 'instituteForm',
+        title: 'Update institute: ' + institute.name,
+        isNew: false,
+        institute: institute
+    });
+});
+
+app.get('/admin/menu/add-institute', checkAuth, function (req, res) {
+    return res.render('layouts/main', {
+        view: 'instituteForm',
+        title: 'Add institute',
+        isNew: true,
+        institute: false
+    });
+});
+
 app.post('/api/save-session', (req, res) => {
     const { requestId } = req.body;
 
@@ -184,19 +302,59 @@ app.get('/api/get-user-state', (req, res) => {
     res.json({ username: userId, tgChatId: chatId, tgUserId: userId });
 });
 
+app.get('/api/users', checkAuth, (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const offset = (page - 1) * limit;
+
+    const userArray = module.exports.getUsers();
+
+    const paginatedUsers = userArray.slice(offset, offset + limit);
+    const totalUsers = userArray.length;
+
+    res.json({ users: paginatedUsers.map(function (item) {
+        if (item.institute_id) {
+            item.institute = module.exports.getInstitute(item.institute_id);
+        }
+
+        return item;
+    }), total: totalUsers });
+});
+
+app.get('/api/institutes', checkAuth, (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const offset = (page - 1) * limit;
+
+    const institutesArray = module.exports.getInstitutes();
+
+    const paginatedInstitutes = institutesArray.slice(offset, offset + limit);
+    const totalInstitutes = institutesArray.length;
+
+    res.json({ users: paginatedInstitutes, total: totalInstitutes });
+});
+
 app.get('/admin/section/:section', checkAuth, (req, res) => {
     const section = req.params.section;
 
-    if (['dashboard', 'auth-requests', 'chat-add-requests', 'chats', 'institutes', 'mail', 'settings', 'users'].includes(section)) {
+    if (['dashboard', 'chat-add-requests', 'chats', 'institutes', 'mail', 'settings', 'users'].includes(section)) {
         return res.render(`templates/sections/${section}`);
     }
 
-    res.status(404).send('Раздел не найден');
+    return res.status(404).send('Раздел не найден');
 });
 
-app.get('/admin/dashboard', checkAuth, (req, res) => {
-    res.render('layouts/dashboard', {title: 'Admin Dashboard', view: "dashboard"});
+app.get('/admin/:section', checkAuth, (req, res) => {
+    const section = req.params.section;
+
+    if (['dashboard', 'chat-add-requests', 'chats', 'institutes', 'mail', 'settings', 'users'].includes(section)) {
+        return res.render('layouts/dashboard', {title: 'Admin Dashboard', view: section.toLowerCase()});
+    }
+
+    return res.status(404).send('Раздел не найден');
 });
+
+
 
 app.get('/', (req, res) => {
     const sessionId = req.cookies['sessionId'];
@@ -373,6 +531,18 @@ module.exports = {
             }
         });
 
+        const currentInstituteIds = new Set(Object.values(institutes).map(institute => institute.id));
+        currentDatabaseConnection.query(
+            'DELETE FROM institutes WHERE id NOT IN (' + Array.from(currentInstituteIds).join(', ') + ')',
+            (err, result) => {
+                if (err) {
+                    console.error('Error deleting institutes');
+                } else {
+                    console.log('Deleted old institutes successfully.');
+                }
+            }
+        );
+
         Object.values(users).forEach(user => {
             if (user.id == null) {
                 currentDatabaseConnection.query(
@@ -396,6 +566,18 @@ module.exports = {
                 );
             }
         });
+
+        const currentUserChatIds = new Set(Object.values(users).map(user => user.tg_chat_id));
+        currentDatabaseConnection.query(
+            'DELETE FROM users WHERE tg_chat_id NOT IN (' + Array.from(currentUserChatIds).join(', ') + ')',
+            (err, result) => {
+                if (err) {
+                    console.error('Error deleting users');
+                } else {
+                    console.log('Deleted old users successfully.');
+                }
+            }
+        );
 
         console.log('Changes saved to the database.');
     },
@@ -432,12 +614,31 @@ module.exports = {
     getInstitute: function (id) {
         return institutes[id] || null;
     },
-    addInstitute: function (institute) {
-        if (!institute || !institute.id) {
+    getInstitutes: function () {
+        return Object.values(institutes);
+    },
+    addInstitute: async function (institute) {
+        if (!institute || !institute.name || !institute.poly_id) {
             return false;
         }
 
-        institutes[institute.id] = institute;
+        const query = `
+            INSERT INTO institutes (name, poly_id)
+            VALUES ($1, $2)
+            RETURNING id;
+        `;
+        await currentDatabaseConnection.query(query, [institute.name, institute.poly_id], (err, result) => {
+            if (err) {
+                return false;
+            }
+
+            const newInstituteId = result.rows[0].id;
+
+            institute.id = newInstituteId;
+            institutes[newInstituteId] = institute;
+
+            return true;
+        });
         return true;
     },
     updateInstitute: function (id, instituteData) {
@@ -448,5 +649,13 @@ module.exports = {
 
         Object.assign(institute, instituteData);
         return true;
+    },
+    deleteUserByTgChatId: function (tgChatId) {
+        delete users[tgChatId];
+        return this;
+    },
+    deleteInstitute: function (id) {
+        delete institutes[id];
+        return this;
     }
 }

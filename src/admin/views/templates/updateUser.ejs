@@ -1,0 +1,82 @@
+<div class="container" style="padding-top: 50px">
+    <h5>Редактировать пользователя: <%= user.tg_username %></h5>
+
+    <form id="update-user-form">
+        <div class="input-field">
+            <input id="tg-chat-id" type="text" value="<%= user.tg_chat_id %>" disabled>
+            <label for="tg-chat-id">ID Telegram</label>
+        </div>
+
+        <div class="input-field">
+            <input id="tg-username" type="text" value="<%= user.tg_username %>" disabled>
+            <label for="tg-username">Никнейм Telegram</label>
+        </div>
+
+        <div class="input-field">
+            <div class="input-field">
+                <select id="institute">
+                    <% institutes.forEach(institute => { %>
+                        <option value="<%= institute.id %>" <%= parseInt(institute.id) === parseInt(user.institute_id) ? 'selected' : '' %>><%= institute.name %></option>
+                    <% }) %>
+                </select>
+                <label for="institute">Институт</label>
+            </div>
+        </div>
+
+        <div class="input-field">
+            <select id="access-level">
+                <option value="1" <%= user.access_level == 1 ? 'selected' : '' %>>Пользователь</option>
+                <option value="1" <%= user.access_level == 1 ? 'selected' : '' %>>Модератор</option>
+                <option value="2" <%= user.access_level == 2 ? 'selected' : '' %>>Администратор</option>
+            </select>
+            <label for="access-level">Уровень доступа</label>
+        </div>
+
+        <button type="button" class="btn waves-effect waves-light" id="save-user-btn">
+            Сохранить
+        </button>
+        <a href="/admin/users" type="button" class="btn waves-effect waves-light" id="save-user-btn">
+            Назад
+        </a>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        M.AutoInit();
+    });
+
+    // Save user updates
+    document.getElementById('save-user-btn').addEventListener('click', function() {
+        const tgChatId = document.getElementById('tg-chat-id').value;
+        const instituteId = document.getElementById('institute').value;
+        const accessLevel = document.getElementById('access-level').value;
+
+        // Prepare the data for the fetch request
+        const data = {
+            tgChatId: tgChatId,
+            instituteId: instituteId,
+            accessLevel: accessLevel
+        };
+
+        // Send the update request
+        fetch('/api/update-user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/admin/users';
+                } else {
+                    M.toast({ html: data.error, classes: 'red' });
+                }
+            })
+            .catch(error => {
+                M.toast({ html: 'Ошибка: ' + error.message, classes: 'red' });
+            });
+    });
+</script>

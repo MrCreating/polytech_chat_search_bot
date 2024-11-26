@@ -8,6 +8,48 @@ document.addEventListener('DOMContentLoaded', function () {
     const links = document.querySelectorAll('[data-link]');
     const content = document.getElementsByClassName('contentContainer')[0];
 
+    function loadSection(section) {
+        fetch(`/admin/section/${section}`)
+            .then(response => response.text())
+            .then(html => {
+                content.innerHTML = html;
+
+                if (window.innerWidth <= 992) {
+                    sidenavInstances.forEach(instance => instance.close());
+                }
+
+                try {
+                    window['init_' + section]();
+                } catch (e) {
+                    console.log('Section ' + section + ' is not initialized');
+                }
+            })
+            .catch(err => {
+                content.innerHTML = '<p class="red-text">Ошибка загрузки раздела.</p>';
+            });
+    }
+
+    const currentSection = window.location.pathname.split('/').pop();
+    if (currentSection) {
+        loadSection(currentSection);
+    }
+
+    links.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const section = link.getAttribute('data-link');
+
+            if (section && section !== '#!') {
+                loadSection(section);
+                history.pushState(null, '', `/admin/${section}`);
+            }
+
+            if (window.innerWidth <= 992) {
+                sidenavInstances.forEach(instance => instance.close());
+            }
+        });
+    });
+
     fetch('/api/get-user-state')
         .then(response => response.json())
         .then(data => {
@@ -30,24 +72,4 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(err => {
             console.error('Ошибка получения состояния пользователя:', err);
         });
-
-    links.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const section = link.getAttribute('data-link');
-
-            fetch(`/admin/section/${section}`)
-                .then(response => response.text())
-                .then(html => {
-                    content.innerHTML = html;
-
-                    if (window.innerWidth <= 992) {
-                        sidenavInstances.forEach(instance => instance.close());
-                    }
-                })
-                .catch(err => {
-                    content.innerHTML = '<p class="red-text">Ошибка загрузки раздела.</p>';
-                });
-        });
-    });
 });
